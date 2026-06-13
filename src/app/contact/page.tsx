@@ -104,7 +104,7 @@ export default function ContactPage() {
                   height: 56,
                   background: sent ? 'var(--green)' : undefined,
                 }}
-                onClick={() => setSent(true)}
+                onClick={async () => { await fetch("/api/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: inqType }) }); setSent(true); }}
               >
                 {sent ? '送信しました ✓' : '送信する →'}
               </button>
