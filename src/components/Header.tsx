@@ -61,8 +61,8 @@ export default function Header({ active }: Props) {
             ))}
           </nav>
           <div className="mnav-foot">
-            <Link href="/login" onClick={() => setOpen(false)}>LOGIN</Link>
-            <Link href="/account" onClick={() => setOpen(false)}>MY PAGE</Link>
+            <Link href="/contact" onClick={() => setOpen(false)}>CONTACT</Link>
+            <Link href="/faq" onClick={() => setOpen(false)}>FAQ</Link>
           </div>
         </div>
       )}
