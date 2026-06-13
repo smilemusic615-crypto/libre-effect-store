@@ -8,12 +8,16 @@ import BrandLogo from '@/components/BrandLogo';
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const login = useAdminStore((s) => s.login);
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (login(password)) {
+    setLoading(true);
+    const ok = await login(password);
+    setLoading(false);
+    if (ok) {
       router.push('/admin/dashboard');
     } else {
       setError('パスワードが正しくありません。');
@@ -42,7 +46,9 @@ export default function AdminLoginPage() {
             />
           </div>
           {error && <div className="adm-login-err">{error}</div>}
-          <button type="submit" className="btn-auth">管理画面へ →</button>
+          <button type="submit" className="btn-auth" disabled={loading}>
+            {loading ? '確認中...' : '管理画面へ →'}
+          </button>
         </form>
       </div>
     </div>

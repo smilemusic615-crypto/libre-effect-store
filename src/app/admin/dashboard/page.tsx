@@ -1,139 +1,129 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MOCK_ORDERS, MOCK_INQUIRIES, STATUS_LABEL } from '@/data/adminData';
 import { yen } from '@/data/products';
 
-const totalRevenue = MOCK_ORDERS.reduce((s, o) => s + o.amount, 0);
-const procOrders = MOCK_ORDERS.filter((o) => o.status === 'proc').length;
-const madeOrders = MOCK_ORDERS.filter((o) => o.status === 'made').length;
-const unread = MOCK_INQUIRIES.filter((i) => i.status === 'unread').length;
+type OrderStatus = 'proc' | 'made' | 'ship' | 'done';
+interface Order {
+  id: string; created_at: string; last_name: string; first_name: string;
+  email: string; total: number; status: OrderStatus;
+  order_items: { product_name: string; qty: number }[];
+}
+interface Inquiry {
+  id: number; created_at: string; name: string; email: string;
+  type: string; body: string; status: string;
+}
 
-const STATS = [
-  { n: MOCK_ORDERS.length, l: 'Total Orders',    d: '今月',  color: 'var(--red)'   },
-  { n: procOrders,         l: 'In Progress',      d: '製作準備中', color: 'var(--ink)'  },
-  { n: madeOrders,         l: 'In Production',    d: '製作中',     color: 'var(--blue)' },
-  { n: unread,             l: 'Unread Inquiries', d: '未対応',     color: 'var(--red)'  },
-];
-
-const STATUS_CLASS: Record<string, string> = {
-  proc: 'proc', made: 'made', ship: 'ship', done: 'done',
-};
-const INQ_CLASS: Record<string, string> = {
-  unread: 'unread', read: 'read', replied: 'replied',
-};
-const INQ_LABEL: Record<string, string> = {
-  unread: '未読', read: '確認済み', replied: '返信済み',
-};
+const STATUS_CLASS: Record<OrderStatus, string> = { proc: 'proc', made: 'made', ship: 'ship', done: 'done' };
+const STATUS_LABEL: Record<OrderStatus, string> = { proc: '製作準備中', made: '製作中', ship: '発送済み', done: '完了' };
+const INQ_CLASS: Record<string, string> = { unread: 'unread', read: 'read', replied: 'replied' };
+const INQ_LABEL: Record<string, string> = { unread: '未読', read: '確認済み', replied: '返信済み' };
+const TYPE_LABEL: Record<string, string> = { quote: '見積もり', data: 'データ入稿', other: 'その他' };
 
 export default function DashboardPage() {
-  return (
-    <>
-      <div className="adm-topbar">
-        <div className="adm-topbar-title">DASH<span className="red">BOARD</span></div>
-        <div className="adm-topbar-meta">2026.06.13 — LIBRE EFFECT 管理</div>
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/admin/orders').then((r) => r.json()),
+      fetch('/api/admin/inquiries').then((r) => r.json()),
+    ]).then(([o, i]) => {
+      setOrders(Array.isArray(o) ? o : []);
+      setInquiries(Array.isArray(i) ? i : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const totalRevenue  = orders.reduce((s, o) => s + o.total, 0);
+  const procOrders    = orders.filter((o) => o.status === 'proc').length;
+  const madeOrders    = orders.filter((o) => o.status === 'made').length;
+  const unreadInquiry = inquiries.filter((i) => i.status === 'unread').length;
+
+  const STATS = [
+    { n: orders.length, l: 'Total Orders',    d: '累計注文数', color: 'var(--red)'   },
+    { n: procOrders,    l: 'In Progress',      d: '製作準備中', color: 'var(--ink)'  },
+    { n: madeOrders,    l: 'In Production',    d: '製作中',     color: 'var(--blue)' },
+    { n: unreadInquiry, l: 'Unread Inquiries', d: '未対応',     color: 'var(--red)'  },
+  ];
+
+  if (loading) {
+    return (
+      <div style={{ padding: 60, textAlign: 'center', fontFamily: 'var(--dot)', color: 'var(--ink-mut)' }}>
+        読み込み中...
       </div>
-      <div className="adm-body">
-        {/* stats */}
-        <div className="adm-stats">
-          {STATS.map((s) => (
-            <div key={s.l} className="adm-stat">
-              <div className="sn" style={{ color: s.color }}>{s.n}</div>
-              <div className="sl">{s.l}</div>
-              <div className="sd">{s.d}</div>
-            </div>
-          ))}
-        </div>
+    );
+  }
 
-        {/* revenue */}
-        <div className="adm-block" style={{ marginBottom: 22 }}>
-          <div className="adm-block-h">
-            <span>REVENUE / 売上合計（今月）</span>
+  return (
+    <div className="adm-body">
+      <div className="adm-stats">
+        {STATS.map((s) => (
+          <div key={s.l} className="adm-stat">
+            <div className="adm-stat-n" style={{ color: s.color }}>{s.n}</div>
+            <div className="adm-stat-l">{s.l}</div>
+            <div className="adm-stat-d">{s.d}</div>
           </div>
-          <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'baseline', gap: 16 }}>
-            <span style={{ fontFamily: 'var(--blk)', fontSize: 40, color: 'var(--red)' }}>{yen(totalRevenue)}</span>
-            <span style={{ fontFamily: 'var(--dot)', fontSize: 11, color: 'var(--ink-mut)' }}>税込・送料除く</span>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {/* recent orders */}
-        <div className="adm-block" style={{ marginBottom: 22 }}>
+      <div className="adm-stat-rev">
+        <span className="lbl">TOTAL REVENUE</span>
+        <span className="val">{yen(totalRevenue)}</span>
+      </div>
+
+      <div className="adm-dash-grid">
+        <div className="adm-block">
           <div className="adm-block-h">
             <span>RECENT ORDERS</span>
-            <Link href="/admin/orders" style={{ fontFamily: 'var(--dot)', fontSize: 11, color: 'oklch(0.7 0.015 90)', letterSpacing: '.1em' }}>
-              VIEW ALL →
-            </Link>
+            <Link href="/admin/orders" className="adm-block-more">全件表示 →</Link>
           </div>
           <table className="adm-table">
             <thead>
-              <tr>
-                <th>注文番号</th>
-                <th>顧客</th>
-                <th>商品</th>
-                <th>金額</th>
-                <th>ステータス</th>
-              </tr>
+              <tr><th>注文番号</th><th>顧客</th><th>商品</th><th>金額</th><th>状態</th></tr>
             </thead>
             <tbody>
-              {MOCK_ORDERS.slice(0, 5).map((o) => (
-                <tr key={o.no}>
-                  <td>
-                    <div style={{ fontFamily: 'var(--dot)', fontSize: 11, letterSpacing: '.08em' }}>{o.no}</div>
-                    <div className="adm-td-sub">{o.date}</div>
-                  </td>
-                  <td>
-                    <div className="adm-td-name">{o.customerName}</div>
-                    <div className="adm-td-sub">{o.email}</div>
-                  </td>
-                  <td>
-                    <div>{o.productName}</div>
-                    <div className="adm-td-sub">{o.material} / {o.size} × {o.qty}</div>
-                  </td>
-                  <td>
-                    <span style={{ fontFamily: 'var(--blk)', fontSize: 15, color: 'var(--red)' }}>{yen(o.amount)}</span>
-                  </td>
-                  <td>
-                    <span className={`adm-status ${STATUS_CLASS[o.status]}`}>
-                      {STATUS_LABEL[o.status]}
-                    </span>
-                  </td>
+              {orders.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 30, color: 'var(--ink-mut)' }}>注文なし</td></tr>
+              ) : orders.slice(0, 5).map((o) => (
+                <tr key={o.id}>
+                  <td style={{ fontFamily: 'var(--dot)', fontSize: 11 }}>{o.id}</td>
+                  <td>{o.last_name} {o.first_name}</td>
+                  <td style={{ fontSize: 12 }}>{o.order_items?.[0]?.product_name ?? '—'}</td>
+                  <td style={{ color: 'var(--red)', fontFamily: 'var(--blk)' }}>{yen(o.total)}</td>
+                  <td><span className={`adm-badge ${STATUS_CLASS[o.status]}`}>{STATUS_LABEL[o.status]}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* recent inquiries */}
         <div className="adm-block">
           <div className="adm-block-h">
             <span>RECENT INQUIRIES</span>
-            <Link href="/admin/inquiries" style={{ fontFamily: 'var(--dot)', fontSize: 11, color: 'oklch(0.7 0.015 90)', letterSpacing: '.1em' }}>
-              VIEW ALL →
-            </Link>
+            <Link href="/admin/inquiries" className="adm-block-more">全件表示 →</Link>
           </div>
           <table className="adm-table">
             <thead>
-              <tr><th>日付</th><th>氏名</th><th>種別</th><th>件名</th><th>ステータス</th></tr>
+              <tr><th>種別</th><th>送信者</th><th>内容（冒頭）</th><th>状態</th></tr>
             </thead>
             <tbody>
-              {MOCK_INQUIRIES.slice(0, 4).map((inq) => (
-                <tr key={inq.id}>
-                  <td><span style={{ fontFamily: 'var(--dot)', fontSize: 11 }}>{inq.date}</span></td>
-                  <td>
-                    <div className="adm-td-name">{inq.name}</div>
-                    <div className="adm-td-sub">{inq.company || inq.email}</div>
-                  </td>
-                  <td><span className="ci-tag">{inq.type === 'quote' ? 'お見積り' : inq.type === 'data' ? 'データ入稿' : 'その他'}</span></td>
-                  <td style={{ maxWidth: 280 }}>
-                    <div style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inq.body}</div>
-                  </td>
-                  <td><span className={`adm-inq-status ${INQ_CLASS[inq.status]}`}>{INQ_LABEL[inq.status]}</span></td>
+              {inquiries.length === 0 ? (
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: 30, color: 'var(--ink-mut)' }}>問い合わせなし</td></tr>
+              ) : inquiries.slice(0, 5).map((i) => (
+                <tr key={i.id}>
+                  <td><span className="ci-tag" style={{ fontSize: 11 }}>{TYPE_LABEL[i.type] ?? i.type}</span></td>
+                  <td>{i.name}</td>
+                  <td style={{ fontSize: 12, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.body}</td>
+                  <td><span className={`adm-badge ${INQ_CLASS[i.status]}`}>{INQ_LABEL[i.status]}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-    </>
+    </div>
   );
 }

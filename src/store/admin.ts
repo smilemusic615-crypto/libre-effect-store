@@ -5,18 +5,21 @@ import { persist } from 'zustand/middleware';
 
 interface AdminState {
   isLoggedIn: boolean;
-  login: (password: string) => boolean;
+  login: (password: string) => Promise<boolean>;
   logout: () => void;
 }
-
-const ADMIN_PASSWORD = 'admin1234';
 
 export const useAdminStore = create<AdminState>()(
   persist(
     (set) => ({
       isLoggedIn: false,
-      login: (password) => {
-        if (password === ADMIN_PASSWORD) {
+      login: async (password) => {
+        const res = await fetch('/api/admin/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        if (res.ok) {
           set({ isLoggedIn: true });
           return true;
         }
